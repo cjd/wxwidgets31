@@ -124,8 +124,15 @@ bool wxButton::Create(wxWindow *parent,
     if ( useLabel )
         SetLabel(label);
 
-    if (style & wxNO_BORDER)
+    if (style & wxNO_BORDER) {
        gtk_button_set_relief( GTK_BUTTON(m_widget), GTK_RELIEF_NONE );
+       GtkStyle *style = gtk_widget_get_style(GTK_WIDGET(m_widget));
+       style->xthickness=0;
+       style->ythickness=0;
+       gtk_widget_set_style(GTK_WIDGET(m_widget), style);
+       gtk_widget_set_can_default(GTK_WIDGET(m_widget), false);
+       gtk_widget_set_can_focus(GTK_WIDGET(m_widget), false);
+    }
 
     g_signal_connect_after (m_widget, "clicked",
                             G_CALLBACK (wxgtk_button_clicked_callback),
