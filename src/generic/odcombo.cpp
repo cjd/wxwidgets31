@@ -85,7 +85,7 @@ bool wxVListBoxComboPopup::Create(wxWindow* parent)
     wxVListBox::SetItemCount(m_strings.GetCount());
 
     // TODO: Move this to SetFont
-    m_itemHeight = GetCharHeight() + 0;
+    m_itemHeight = m_combo->GetCharHeight();
 
     return true;
 }
@@ -991,9 +991,9 @@ void wxOwnerDrawnComboBox::DoClear()
 
     GetVListBoxComboPopup()->Clear();
 
-    // NB: This really needs to be SetValue() instead of ChangeValue(),
-    //     as wxTextEntry API expects an event to be sent.
-    SetValue(wxEmptyString);
+    // There is no text entry when using wxCB_READONLY style, so test for it.
+    if ( GetTextCtrl() )
+        wxTextEntry::Clear();
 }
 
 void wxOwnerDrawnComboBox::Clear()

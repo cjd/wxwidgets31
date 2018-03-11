@@ -1,4 +1,3 @@
-
 /*
  * Windows CE platform tiffconf.wince.h
  * Created by Mateusz Loskot (mateusz@loskot.net)

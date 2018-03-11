@@ -232,10 +232,12 @@ void wxBell()
 @implementation ModalDialogDelegate
 - (id)init
 {
-    self = [super init];
-    sheetFinished = NO;
-    resultCode = -1;
-    impl = 0;
+    if ( self = [super init] )
+    {
+        sheetFinished = NO;
+        resultCode = -1;
+        impl = 0;
+    }
     return self;
 }
 
@@ -283,7 +285,7 @@ void wxBell()
 #if 0 
 
 // one possible solution is also quoted here
-// from http://stackoverflow.com/questions/7596643/when-calling-transformprocesstype-the-app-menu-doesnt-show-up
+// from https://stackoverflow.com/questions/7596643/when-calling-transformprocesstype-the-app-menu-doesnt-show-up
 
 @interface wxNSNonBundledAppHelper : NSObject {
     
@@ -336,8 +338,10 @@ void wxBell()
 
 - (id)init
 {
-    self = [super init];
-    firstPass = YES;
+    if ( self = [super init] )
+    {
+        firstPass = YES;
+    }
     return self;
 }
 
@@ -421,6 +425,11 @@ bool wxApp::DoInitGui()
     }
     gNSLayoutManager = [[NSLayoutManager alloc] init];
     
+    // This call makes it so that appplication:openFile: doesn't get bogus calls
+    // from Cocoa doing its own parsing of the argument string. And yes, we need
+    // to use a string with a boolean value in it. That's just how it works.
+    [[NSUserDefaults standardUserDefaults] setObject:@"NO" forKey:@"NSTreatUnknownArgumentsAsOpen"];
+
     return true;
 }
 

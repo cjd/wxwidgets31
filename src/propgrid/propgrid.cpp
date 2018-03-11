@@ -484,6 +484,11 @@ void wxPropertyGrid::Init2()
     // This helps with flicker
     SetBackgroundStyle( wxBG_STYLE_CUSTOM );
 
+    // Rely on native double-buffering by default.
+#if wxALWAYS_NATIVE_DOUBLE_BUFFER
+    SetExtraStyle(GetExtraStyle() | wxPG_EX_NATIVE_DOUBLE_BUFFERING);
+#endif // wxALWAYS_NATIVE_DOUBLE_BUFFER
+
     // Hook the top-level parent
     m_tlpClosed = NULL;
     m_tlpClosedTime = 0;
@@ -959,7 +964,13 @@ void wxPropertyGrid::DoSetSelection( const wxArrayPGProperty& newSelection,
 void wxPropertyGrid::MakeColumnEditable( unsigned int column,
                                          bool editable )
 {
-    wxASSERT( column != 1 );
+    // The second column is always editable. To make it read-only is a property
+    // by property decision by setting its wxPG_PROP_READONLY flag.
+    wxASSERT_MSG
+    (
+         column != 1,
+         wxS("Set wxPG_PROP_READONLY property flag instead")
+    );
 
     wxArrayInt& cols = m_pState->m_editableColumns;
 
@@ -1039,6 +1050,8 @@ void wxPropertyGrid::DoBeginLabelEdit( unsigned int colIndex,
     tc->SetFocus();
 
     m_labelEditor = wxStaticCast(tc, wxTextCtrl);
+    // Get actual position within required rectangle
+    m_labelEditorPosRel = m_labelEditor->GetPosition() - r.GetPosition();
     m_labelEditorProperty = selected;
 }
 
@@ -1151,26 +1164,9 @@ void wxPropertyGrid::SetExtraStyle( long exStyle )
 
     if ( exStyle & wxPG_EX_NATIVE_DOUBLE_BUFFERING )
     {
-#if defined(__WXMSW__)
-
-        /*
-        // Don't use WS_EX_COMPOSITED just now.
-        HWND hWnd;
-
-        if ( m_iFlags & wxPG_FL_IN_MANAGER )
-            hWnd = (HWND)GetParent()->GetHWND();
-        else
-            hWnd = (HWND)GetHWND();
-
-        ::SetWindowLong( hWnd, GWL_EXSTYLE,
-                         ::GetWindowLong(hWnd, GWL_EXSTYLE) | WS_EX_COMPOSITED );
-        */
-
-//#elif defined(__WXGTK20__)
-#endif
         // Only apply wxPG_EX_NATIVE_DOUBLE_BUFFERING if the window
         // truly was double-buffered.
-        if ( !this->IsDoubleBuffered() )
+        if ( !IsDoubleBuffered() )
         {
             exStyle &= ~(wxPG_EX_NATIVE_DOUBLE_BUFFERING);
         }
@@ -1214,10 +1210,7 @@ wxSize wxPropertyGrid::DoGetBestSize() const
         width += m_pState->GetColumnFitWidth(dc, m_pState->DoGetRoot(), i, true);
     }
 
-    const wxSize sz = wxSize(width, lineHeight*numLines + 40);
-
-    CacheBestSize(sz);
-    return sz;
+    return wxSize(width, lineHeight*numLines + 40);
 }
 
 // -----------------------------------------------------------------------
@@ -1736,7 +1729,7 @@ wxPoint wxPropertyGrid::GetGoodEditorDialogPosition( wxPGProperty* p,
 
 // -----------------------------------------------------------------------
 
-wxString& wxPropertyGrid::ExpandEscapeSequences( wxString& dst_str, wxString& src_str )
+wxString& wxPropertyGrid::ExpandEscapeSequences( wxString& dst_str, const wxString& src_str )
 {
     dst_str.clear();
 
@@ -1747,9 +1740,8 @@ wxString& wxPropertyGrid::ExpandEscapeSequences( wxString& dst_str, wxString& sr
 
     bool prev_is_slash = false;
 
-    wxString::const_iterator i = src_str.begin();
-
-    for ( ; i != src_str.end(); ++i )
+    wxString::const_iterator i;
+    for ( i = src_str.begin(); i != src_str.end(); ++i )
     {
         wxUniChar a = *i;
 
@@ -1762,13 +1754,9 @@ wxString& wxPropertyGrid::ExpandEscapeSequences( wxString& dst_str, wxString& sr
             else
             {
                 if ( a == wxS('n') )
-                {
-            #ifdef __WXMSW__
                     dst_str << wxS('\n');
-            #else
-                    dst_str << wxS('\n');
-            #endif
-                }
+                else if ( a == wxS('r') )
+                    dst_str << wxS('\r');
                 else if ( a == wxS('t') )
                     dst_str << wxS('\t');
                 else
@@ -1794,7 +1782,7 @@ wxString& wxPropertyGrid::ExpandEscapeSequences( wxString& dst_str, wxString& sr
 
 // -----------------------------------------------------------------------
 
-wxString& wxPropertyGrid::CreateEscapeSequences( wxString& dst_str, wxString& src_str )
+wxString& wxPropertyGrid::CreateEscapeSequences( wxString& dst_str, const wxString& src_str )
 {
     dst_str.clear();
 
@@ -1804,39 +1792,24 @@ wxString& wxPropertyGrid::CreateEscapeSequences( wxString& dst_str, wxString& sr
     }
 
     wxString::const_iterator i;
-    wxUniChar prev_a = wxS('\0');
-
     for ( i = src_str.begin(); i != src_str.end(); ++i )
     {
         wxUniChar a = *i;
 
-        if ( a >= wxS(' ') )
-        {
-            // This surely is not something that requires an escape sequence.
-            dst_str << a;
-        }
+        if ( a == wxS('\r') )
+            // Carriage Return.
+            dst_str << wxS("\\r");
+        else if ( a == wxS('\n') )
+            // Line Feed.
+            dst_str << wxS("\\n");
+        else if ( a == wxS('\t') )
+            // Tab.
+            dst_str << wxS("\\t");
+        else if ( a == wxS('\\') )
+            // Escape character (backslash).
+            dst_str << wxS("\\\\");
         else
-        {
-            // This might need...
-            if ( a == wxS('\r')  )
-            {
-                // DOS style line end.
-                // Already taken care below
-            }
-            else if ( a == wxS('\n') )
-                // UNIX style line end.
-                dst_str << wxS("\\n");
-            else if ( a == wxS('\t') )
-                // Tab.
-                dst_str << wxS('\t');
-            else
-            {
-                //wxLogDebug(wxS("WARNING: Could not create escape sequence for character #%i"),(int)a);
-                dst_str << a;
-            }
-        }
-
-        prev_a = a;
+            dst_str << a;
     }
     return dst_str;
 }
@@ -4221,6 +4194,17 @@ bool wxPropertyGrid::DoSelectProperty( wxPGProperty* p, unsigned int flags )
 
                 m_wndEditor = wndList.m_primary;
                 m_wndEditor2 = wndList.m_secondary;
+                // Remember actual positions within required cell.
+                // These values can be used when there will be required
+                // to reposition the cell.
+                if ( m_wndEditor )
+                {
+                    m_wndEditorPosRel = m_wndEditor->GetPosition() - goodPos;
+                }
+                if ( m_wndEditor2 )
+                {
+                    m_wndEditor2PosRel = m_wndEditor2->GetPosition() - goodPos;
+                }
                 primaryCtrl = GetEditorControl();
 
                 //
@@ -4660,12 +4644,7 @@ void wxPropertyGrid::OnResize( wxSizeEvent& event )
 
     if ( !HasExtraStyle(wxPG_EX_NATIVE_DOUBLE_BUFFERING) )
     {
-        // Scaled bitmaps only work on Mac currently
-#ifdef __WXOSX_COCOA__
         double scaleFactor = GetContentScaleFactor();
-#else
-        double scaleFactor = 1.0;
-#endif
         int dblh = (m_lineHeight*2);
         if ( !m_doubleBuffer )
         {
@@ -4677,8 +4656,8 @@ void wxPropertyGrid::OnResize( wxSizeEvent& event )
         }
         else
         {
-            int w = m_doubleBuffer->GetWidth();
-            int h = m_doubleBuffer->GetHeight();
+            int w = m_doubleBuffer->GetScaledWidth();
+            int h = m_doubleBuffer->GetScaledHeight();
 
             // Double buffer must be large enough
             if ( w < width || h < (height+dblh) )
@@ -5972,7 +5951,9 @@ bool wxPropertyGrid::IsEditorFocused() const
     wxWindow* focus = wxWindow::FindFocus();
 
     if ( focus == m_wndEditor || focus == m_wndEditor2 ||
-         focus == GetEditorControl() )
+         focus == GetEditorControl() ||
+         // In case a combobox text control is focused
+         (focus && focus->GetParent() && (focus->GetParent() == m_wndEditor)) )
          return true;
 
     return false;

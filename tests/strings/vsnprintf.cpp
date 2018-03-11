@@ -173,7 +173,7 @@ private:
     void WrongFormatStrings();
 
     // compares the expectedString and the result of wxVsnprintf() char by char
-    // for all its lenght (not only for first expectedLen chars) and also
+    // for all its length (not only for first expectedLen chars) and also
     // checks the return value
     void DoMisc(int expectedLen, const wxString& expectedString,
                 size_t max, const wxChar *format, ...);
@@ -552,8 +552,10 @@ void VsnprintfTestCase::DoMisc(
     std::string errMsg(errStr.mb_str());
     std::string overflowMsg(overflowStr.mb_str());
 
-    CPPUNIT_ASSERT_MESSAGE(errMsg,
-            (expectedLen == -1 && size_t(n) >= max) || expectedLen == n);
+    if ( size_t(n) < max )
+        CPPUNIT_ASSERT_MESSAGE(errMsg, expectedLen == n);
+    else
+        CPPUNIT_ASSERT_MESSAGE(errMsg, expectedLen == -1);
 
     CPPUNIT_ASSERT_MESSAGE(errMsg, expectedString == buf);
 

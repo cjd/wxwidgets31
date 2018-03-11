@@ -446,20 +446,19 @@ void ButtonWidgetsPage::CreateButton()
             break;
     }
 
-#if wxUSE_COMMANDLINKBUTTON
-    m_sizerNote->Show(m_chkCommandLink->GetValue());
-#endif
-
     bool showsBitmap = false;
     if ( m_chkBitmapOnly->GetValue() )
     {
+        m_chkCommandLink->SetValue(false); // wxCommandLinkButton cannot be "Bitmap only"
+
         showsBitmap = true;
 
         wxButton *bbtn;
         if ( m_chkUseBitmapClass->GetValue() )
         {
           bbtn = new wxBitmapButton(this, ButtonPage_Button,
-                                    CreateBitmap(wxT("normal")));
+                                    CreateBitmap(wxT("normal")),
+                                    wxDefaultPosition, wxDefaultSize, flags);
         }
         else
         {
@@ -503,6 +502,10 @@ void ButtonWidgetsPage::CreateButton()
         }
     }
 
+#if wxUSE_COMMANDLINKBUTTON
+    m_sizerNote->Show(m_chkCommandLink->GetValue());
+#endif
+
     if ( !showsBitmap && m_chkTextAndBitmap->GetValue() )
     {
         showsBitmap = true;
@@ -525,6 +528,9 @@ void ButtonWidgetsPage::CreateButton()
             m_button->SetBitmapDisabled(wxArtProvider::GetIcon(wxART_MISSING_IMAGE, wxART_BUTTON));
     }
 
+    m_chkTextAndBitmap->Enable(!m_chkBitmapOnly->IsChecked());
+    m_chkBitmapOnly->Enable(!m_chkTextAndBitmap->IsChecked());
+    m_chkCommandLink->Enable(!m_chkBitmapOnly->IsChecked());
     m_chkUseBitmapClass->Enable(showsBitmap);
 
     m_chkUsePressed->Enable(showsBitmap);

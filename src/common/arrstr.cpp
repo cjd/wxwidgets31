@@ -36,8 +36,7 @@ wxArrayString::wxArrayString(size_t sz, const char** a)
 #if !wxUSE_STD_CONTAINERS
     Init(false);
 #endif
-    for (size_t i=0; i < sz; i++)
-        Add(a[i]);
+    assign(a, a + sz);
 }
 
 wxArrayString::wxArrayString(size_t sz, const wchar_t** a)
@@ -45,8 +44,7 @@ wxArrayString::wxArrayString(size_t sz, const wchar_t** a)
 #if !wxUSE_STD_CONTAINERS
     Init(false);
 #endif
-    for (size_t i=0; i < sz; i++)
-        Add(a[i]);
+    assign(a, a + sz);
 }
 
 wxArrayString::wxArrayString(size_t sz, const wxString* a)
@@ -54,14 +52,10 @@ wxArrayString::wxArrayString(size_t sz, const wxString* a)
 #if !wxUSE_STD_CONTAINERS
     Init(false);
 #endif
-    for (size_t i=0; i < sz; i++)
-        Add(a[i]);
+    assign(a, a + sz);
 }
 
 #if !wxUSE_STD_CONTAINERS
-
-// size increment = min(50% of current size, ARRAY_MAXSIZE_INCREMENT)
-#define   ARRAY_MAXSIZE_INCREMENT       4096
 
 #ifndef   ARRAY_DEFAULT_INITIAL_SIZE    // also defined in dynarray.h
 #define   ARRAY_DEFAULT_INITIAL_SIZE    (16)
@@ -89,7 +83,14 @@ wxArrayString::wxArrayString(const wxArrayString& src)
 wxArrayString& wxArrayString::operator=(const wxArrayString& src)
 {
   if ( m_nSize > 0 )
+  {
+    // Do this test here to avoid unnecessary overhead when assigning to an
+    // empty array, in that case there is no harm in self-assignment.
+    if ( &src == this )
+        return *this;
+
     Clear();
+  }
 
   Copy(src);
 
@@ -135,11 +136,8 @@ wxString *wxArrayString::Grow(size_t nIncrement)
     else {
       // otherwise when it's called for the first time, nIncrement would be 0
       // and the array would never be expanded
-      // add 50% but not too much
       size_t ndefIncrement = m_nSize < ARRAY_DEFAULT_INITIAL_SIZE
-                          ? ARRAY_DEFAULT_INITIAL_SIZE : m_nSize >> 1;
-      if ( ndefIncrement > ARRAY_MAXSIZE_INCREMENT )
-        ndefIncrement = ARRAY_MAXSIZE_INCREMENT;
+                          ? ARRAY_DEFAULT_INITIAL_SIZE : m_nSize;
       if ( nIncrement < ndefIncrement )
         nIncrement = ndefIncrement;
       m_nSize += nIncrement;
@@ -483,11 +481,11 @@ bool wxArrayString::operator==(const wxArrayString& a) const
 
 wxString wxJoin(const wxArrayString& arr, const wxChar sep, const wxChar escape)
 {
+    wxString str;
+
     size_t count = arr.size();
     if ( count == 0 )
-        return wxEmptyString;
-
-    wxString str;
+        return str;
 
     // pre-allocate memory using the estimation of the average length of the
     // strings in the given array: this is very imprecise, of course, but

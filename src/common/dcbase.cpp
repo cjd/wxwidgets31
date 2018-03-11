@@ -368,21 +368,41 @@ wxDCImpl::~wxDCImpl()
 
 void wxDCImpl::DoSetClippingRegion(wxCoord x, wxCoord y, wxCoord w, wxCoord h)
 {
+    wxASSERT_MSG( w >= 0 && h >= 0,
+                  wxS("Clipping box size values cannot be negative") );
+
+    wxRect clipRegion(x, y, w, h);
+
     if ( m_clipping )
     {
-        m_clipX1 = wxMax( m_clipX1, x );
-        m_clipY1 = wxMax( m_clipY1, y );
-        m_clipX2 = wxMin( m_clipX2, (x + w) );
-        m_clipY2 = wxMin( m_clipY2, (y + h) );
+        // New clipping box is an intersection
+        // of required clipping box and the current one.
+        wxRect curRegion(m_clipX1, m_clipY1, m_clipX2 - m_clipX1, m_clipY2 - m_clipY1);
+        clipRegion.Intersect(curRegion);
     }
     else
     {
-        m_clipping = true;
+        // Effective clipping box is an intersection
+        // of required clipping box and DC surface.
+        int dcWidth, dcHeight;
+        DoGetSize(&dcWidth, &dcHeight);
+        wxRect dcRect(DeviceToLogicalX(0), DeviceToLogicalY(0),
+                      DeviceToLogicalXRel(dcWidth), DeviceToLogicalYRel(dcHeight));
+        clipRegion.Intersect(dcRect);
 
-        m_clipX1 = x;
-        m_clipY1 = y;
-        m_clipX2 = x + w;
-        m_clipY2 = y + h;
+        m_clipping = true;
+    }
+
+    if ( clipRegion.IsEmpty() )
+    {
+        m_clipX1 = m_clipY1 = m_clipX2 = m_clipY2 = 0;
+    }
+    else
+    {
+        m_clipX1 = clipRegion.GetLeft();
+        m_clipY1 = clipRegion.GetTop();
+        m_clipX2 = clipRegion.GetRight() + 1;
+        m_clipY2 = clipRegion.GetBottom() + 1;
     }
 }
 
@@ -677,11 +697,15 @@ void wxDCImpl::DrawSpline(int n, const wxPoint points[])
 
 // ----------------------------------- spline code ----------------------------------------
 
+static
 void wx_quadratic_spline(double a1, double b1, double a2, double b2,
                          double a3, double b3, double a4, double b4);
+static
 void wx_clear_stack();
+static
 int wx_spline_pop(double *x1, double *y1, double *x2, double *y2, double *x3,
         double *y3, double *x4, double *y4);
+static
 void wx_spline_push(double x1, double y1, double x2, double y2, double x3, double y3,
           double x4, double y4);
 static bool wx_spline_add_point(double x, double y);
@@ -1300,8 +1324,6 @@ It uses wxDCBase::CalculateEllipticPoints(...) and wxDCBase::Rotate(...),
 which are also new.
 
 All methods are generic, so they can be implemented in wxDCBase.
-DoDrawEllipticArcRot(...) is virtual, so it can be called from deeper
-methods like (WinCE) wxDC::DoDrawArc(...).
 
 CalculateEllipticPoints(...) fills a given list of wxPoints with some points
 of an elliptic arc. The algorithm is pixel-based: In every row (in flat

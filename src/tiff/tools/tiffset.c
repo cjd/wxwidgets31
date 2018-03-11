@@ -1,5 +1,4 @@
 /******************************************************************************
- *
  * Project:  libtiff tools
  * Purpose:  Mainline for setting metadata in existing TIFF files.
  * Author:   Frank Warmerdam, warmerdam@pobox.com
@@ -28,6 +27,7 @@
  ******************************************************************************
  */
 
+#include "tif_config.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -39,6 +39,7 @@ static char* usageMsg[] = {
 "usage: tiffset [options] filename",
 "where options are:",
 " -s <tagname> [count] <value>...   set the tag value",
+" -u <tagname> to unset the tag",
 " -d <dirno> set the directory",
 " -sd <diroff> set the subdirectory",
 " -sf <tagname> <filename>  read the tag value from file (for ASCII tags only)",
@@ -104,7 +105,22 @@ main(int argc, char* argv[])
             }
 	    arg_index++;
 	}
-        if (strcmp(argv[arg_index],"-s") == 0 && arg_index < argc-3) {
+    /* Add unset option to tiffset -- Zach Baker (niquil@niquil.net) 11/14/2012 */ 
+    if (strcmp(argv[arg_index],"-u") == 0 && arg_index < argc-2) {
+            const TIFFField *fip;
+            const char *tagname;
+            arg_index++;
+            tagname = argv[arg_index];
+            fip = GetField(tiff, tagname);
+            if (!fip)
+                return 3;
+
+            if (TIFFUnsetField(tiff, TIFFFieldTag(fip)) != 1)
+            {
+                    fprintf(stderr, "Failed to unset %s\n", TIFFFieldName(fip));
+            }
+            arg_index++;
+    } else if (strcmp(argv[arg_index],"-s") == 0 && arg_index < argc-3) {
             const TIFFField *fip;
             const char *tagname;
 
@@ -138,7 +154,7 @@ main(int argc, char* argv[])
                     return 4;
                 }
                     
-                if (wc > 1) {
+                if (wc > 1 || TIFFFieldWriteCount(fip) == TIFF_VARIABLE) {
                         int     i, size;
                         void    *array;
 

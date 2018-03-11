@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2009 Frank Warmerdam
  *
@@ -45,6 +44,15 @@ unsigned long strtoul(const char *nptr, char **endptr, int base);
 void *
 lfind(const void *key, const void *base, size_t *nmemb, size_t size,
       int(*compar)(const void *, const void *));
+#endif
+
+#if !defined(HAVE_SNPRINTF)
+#undef vsnprintf
+#define vsnprintf _TIFF_vsnprintf_f
+
+#undef snprintf
+#define snprintf _TIFF_snprintf_f
+int snprintf(char* str, size_t size, const char* format, ...);
 #endif
 
 #endif /* ndef _LIBPORT_ */

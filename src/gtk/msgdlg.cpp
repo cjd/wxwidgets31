@@ -50,27 +50,47 @@ wxMessageDialog::wxMessageDialog(wxWindow *parent,
 
 wxString wxMessageDialog::GetDefaultYesLabel() const
 {
+#if defined(__WXGTK3__) && GTK_CHECK_VERSION(3,10,0)
+    return wxConvertMnemonicsToGTK(wxGetStockLabel(wxID_YES));
+#else
     return GTK_STOCK_YES;
+#endif // GTK >= 3.10 / < 3.10
 }
 
 wxString wxMessageDialog::GetDefaultNoLabel() const
 {
+#if defined(__WXGTK3__) && GTK_CHECK_VERSION(3,10,0)
+    return wxConvertMnemonicsToGTK(wxGetStockLabel(wxID_NO));
+#else
     return GTK_STOCK_NO;
+#endif // GTK >= 3.10 / < 3.10
 }
 
 wxString wxMessageDialog::GetDefaultOKLabel() const
 {
+#if defined(__WXGTK3__) && GTK_CHECK_VERSION(3,10,0)
+    return wxConvertMnemonicsToGTK(wxGetStockLabel(wxID_OK));
+#else
     return GTK_STOCK_OK;
+#endif // GTK >= 3.10 / < 3.10
 }
 
 wxString wxMessageDialog::GetDefaultCancelLabel() const
 {
+#if defined(__WXGTK3__) && GTK_CHECK_VERSION(3,10,0)
+    return wxConvertMnemonicsToGTK(wxGetStockLabel(wxID_CANCEL));
+#else
     return GTK_STOCK_CANCEL;
+#endif // GTK >= 3.10 / < 3.10
 }
 
 wxString wxMessageDialog::GetDefaultHelpLabel() const
 {
+#if defined(__WXGTK3__) && GTK_CHECK_VERSION(3,10,0)
+    return wxConvertMnemonicsToGTK(wxGetStockLabel(wxID_HELP));
+#else
     return GTK_STOCK_HELP;
+#endif // GTK >= 3.10 / < 3.10
 }
 
 void wxMessageDialog::DoSetCustomLabel(wxString& var, const ButtonLabel& label)
@@ -83,7 +103,11 @@ void wxMessageDialog::DoSetCustomLabel(wxString& var, const ButtonLabel& label)
     }
     else // stock label
     {
+#if defined(__WXGTK3__) && GTK_CHECK_VERSION(3,10,0)
+        var = wxConvertMnemonicsToGTK(wxGetStockLabel(stockId));
+#else
         var = wxGetStockGtkID(stockId);
+#endif // GTK >= 3.10 / < 3.10
     }
 }
 
@@ -214,6 +238,8 @@ void wxMessageDialog::GTKCreateMsgDialog()
         defaultButton = GTK_RESPONSE_NO;
     else if ( m_dialogStyle & wxYES_NO )
         defaultButton = GTK_RESPONSE_YES;
+    else if ( m_dialogStyle & wxOK )
+        defaultButton = GTK_RESPONSE_OK;
     else // No need to change the default value, whatever it is.
         defaultButton = GTK_RESPONSE_NONE;
 

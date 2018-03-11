@@ -158,15 +158,17 @@ public:
     // implementation-only from now on
 
 protected:
+#if wxOSX_USE_IPHONE
+    bool DoCreate(wxWindow *parent,
+                              wxWindowID id,
+                              const wxPoint& pos,
+                              const wxSize& size,
+                              long style,
+                  const wxString& name);
+
+#endif
     WXGLPixelFormat m_glFormat;
     wxGLAttributes m_GLAttrs;
-
-#if wxOSX_USE_CARBON
-    bool m_macCanvasIsShown,
-         m_needsUpdate;
-    WXGLContext m_dummyContext;
-    GLint m_bufferName;
-#endif
 
     wxDECLARE_EVENT_TABLE();
     wxDECLARE_CLASS(wxGLCanvas);

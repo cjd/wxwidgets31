@@ -76,10 +76,8 @@ private:
 // CppUnit macros
 // ----------------------------------------------------------------------------
 
-//CPPUNIT_TEST_SUITE_REGISTRATION( InteractiveOutputTestCase );
-    // do not run this test by default!
-
-CPPUNIT_TEST_SUITE_NAMED_REGISTRATION( InteractiveOutputTestCase, "InteractiveOutputTestCase" );
+wxREGISTER_UNIT_TEST_WITH_TAGS(InteractiveOutputTestCase,
+                               "[!hide][interactive][output]");
 
 // ============================================================================
 // implementation
@@ -404,6 +402,7 @@ void InteractiveOutputTestCase::TestStandardPaths()
     wxPrintf(wxT("Data dir (user):\t%s\n"), stdp.GetUserDataDir().c_str());
     wxPrintf(wxT("Data dir (user local):\t%s\n"), stdp.GetUserLocalDataDir().c_str());
     wxPrintf(wxT("Documents dir:\t\t%s\n"), stdp.GetDocumentsDir().c_str());
+    wxPrintf(wxT("Cache dir:\t\t%s\n"), stdp.GetUserDir(wxStandardPaths::Dir_Cache).c_str());
     wxPrintf(wxT("Desktop dir:\t\t%s\n"), stdp.GetUserDir(wxStandardPaths::Dir_Desktop).c_str());
     wxPrintf(wxT("Downloads dir:\t\t%s\n"), stdp.GetUserDir(wxStandardPaths::Dir_Downloads).c_str());
     wxPrintf(wxT("Music dir:\t\t%s\n"), stdp.GetUserDir(wxStandardPaths::Dir_Music).c_str());

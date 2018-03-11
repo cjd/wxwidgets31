@@ -150,6 +150,11 @@ int wxListBox::GetTopItem() const
     return GetListPeer()->ListGetTopItem();
 }
 
+int wxListBox::GetCountPerPage() const
+{
+    return GetListPeer()->ListGetCountPerPage();
+}
+
 void wxListBox::DoDeleteOneItem(unsigned int n)
 {
     wxCHECK_RET( IsValid(n), wxT("invalid index in wxListBox::Delete") );
@@ -376,6 +381,8 @@ int wxListBox::DoInsertItems(const wxArrayStringsAdapter& items,
     // preserve the old selection unchanged, in fact, but I don't know how to
     // get the first visible item so for now do at least this.
     SetFirstItem(startpos);
+
+    InvalidateBestSize();
 
     UpdateOldSelections();
 

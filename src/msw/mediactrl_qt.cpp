@@ -101,14 +101,11 @@ typedef struct ComponentInstanceRecord * ComponentInstance;
 #define MovieController ComponentInstance
 
 #ifndef URLDataHandlerSubType
-#if defined(__MINGW32__)
-// use magic numbers for compilers which complain about multicharacter integers
-const OSType URLDataHandlerSubType     = 1970433056;
-const OSType VisualMediaCharacteristic = 1702454643;
-#else
-const OSType URLDataHandlerSubType     = 'url ';
-const OSType VisualMediaCharacteristic = 'eyes';
-#endif
+// Under Mac this would be defined as 'url ' and 'eyes' multi-character
+// constants respectively (translate each byte to ASCII to see it), but this is
+// not accepted by non-Mac compilers, so use the numeric constants instead.
+const OSType URLDataHandlerSubType     = 0x75726c20;
+const OSType VisualMediaCharacteristic = 0x65796573;
 #endif
 
 struct FSSpec
@@ -355,33 +352,33 @@ public:
                                      const wxSize& size,
                                      long style,
                                      const wxValidator& validator,
-                                     const wxString& name);
+                                     const wxString& name) wxOVERRIDE;
 
-    virtual bool Play();
-    virtual bool Pause();
-    virtual bool Stop();
+    virtual bool Play() wxOVERRIDE;
+    virtual bool Pause() wxOVERRIDE;
+    virtual bool Stop() wxOVERRIDE;
 
     virtual bool Load(const wxURI& location,
-                      const wxURI& proxy)
+                      const wxURI& proxy) wxOVERRIDE
     { return wxMediaBackend::Load(location, proxy); }
 
-    virtual bool Load(const wxString& fileName);
-    virtual bool Load(const wxURI& location);
+    virtual bool Load(const wxString& fileName) wxOVERRIDE;
+    virtual bool Load(const wxURI& location) wxOVERRIDE;
 
-    virtual wxMediaState GetState();
+    virtual wxMediaState GetState() wxOVERRIDE;
 
-    virtual bool SetPosition(wxLongLong where);
-    virtual wxLongLong GetPosition();
-    virtual wxLongLong GetDuration();
+    virtual bool SetPosition(wxLongLong where) wxOVERRIDE;
+    virtual wxLongLong GetPosition() wxOVERRIDE;
+    virtual wxLongLong GetDuration() wxOVERRIDE;
 
-    virtual void Move(int x, int y, int w, int h);
-    wxSize GetVideoSize() const;
+    virtual void Move(int x, int y, int w, int h) wxOVERRIDE;
+    wxSize GetVideoSize() const wxOVERRIDE;
 
-    virtual double GetPlaybackRate();
-    virtual bool SetPlaybackRate(double dRate);
+    virtual double GetPlaybackRate() wxOVERRIDE;
+    virtual bool SetPlaybackRate(double dRate) wxOVERRIDE;
 
-    virtual double GetVolume();
-    virtual bool SetVolume(double);
+    virtual double GetVolume() wxOVERRIDE;
+    virtual bool SetVolume(double) wxOVERRIDE;
 
     void Cleanup();
     void FinishLoad();
@@ -394,7 +391,7 @@ public:
 
     static LRESULT CALLBACK QTWndProc(HWND, UINT, WPARAM, LPARAM);
 
-    virtual bool ShowPlayerControls(wxMediaCtrlPlayerControls flags);
+    virtual bool ShowPlayerControls(wxMediaCtrlPlayerControls flags) wxOVERRIDE;
 
     wxSize m_bestSize;              // Original movie size
     Movie m_movie;    // QT Movie handle/instance
@@ -469,7 +466,7 @@ public:
     wxQTLoadTimer(Movie movie, wxQTMediaBackend* parent, wxQuickTimeLibrary* pLib) :
       m_movie(movie), m_parent(parent), m_pLib(pLib) {}
 
-    void Notify()
+    void Notify() wxOVERRIDE
     {
         m_pLib->MoviesTask(m_movie, 0);
         // kMovieLoadStatePlayable
@@ -502,7 +499,7 @@ public:
                   wxQuickTimeLibrary* pLib) :
         m_movie(movie), m_parent(parent), m_pLib(pLib) {}
 
-    void Notify()
+    void Notify() wxOVERRIDE
     {
         //
         //  OK, a little explaining - basically originally

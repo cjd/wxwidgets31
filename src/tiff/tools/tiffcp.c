@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 1988-1997 Sam Leffler
  * Copyright (c) 1991-1997 Silicon Graphics, Inc.
@@ -44,7 +43,6 @@
 #include <string.h>
 
 #include <ctype.h>
-#include <assert.h>
 
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
@@ -167,12 +165,14 @@ main(int argc, char* argv[])
 	char mode[10];
 	char* mp = mode;
 	int c;
+#if !HAVE_DECL_OPTARG
 	extern int optind;
 	extern char* optarg;
+#endif
 
 	*mp++ = 'w';
 	*mp = '\0';
-	while ((c = getopt(argc, argv, ",:b:c:f:l:o:z:p:r:w:aistBLMC8x")) != -1)
+	while ((c = getopt(argc, argv, ",:b:c:f:l:o:p:r:w:aistBLMC8x")) != -1)
 		switch (c) {
 		case ',':
 			if (optarg[0] != '=') usage();
@@ -407,7 +407,12 @@ char* stuff[] = {
 " -p separate     store samples separately (e.g. RRR...GGG...BBB...)",
 " -s              write output in strips",
 " -t              write output in tiles",
+" -x              force the merged tiff pages in sequence",
 " -8              write BigTIFF instead of default ClassicTIFF",
+" -B              write big-endian instead of native byte order",
+" -L              write little-endian instead of native byte order",
+" -M              disable use of memory-mapped files",
+" -C              disable strip chopping",
 " -i              ignore read errors",
 " -b file[,#]     bias (dark) monochrome image to be subtracted from all others",
 " -,=%            use % rather than , to separate image #'s (per Note below)",
@@ -429,7 +434,6 @@ char* stuff[] = {
 " -c g4           compress output with CCITT Group 4 encoding",
 " -c sgilog       compress output with SGILOG encoding",
 " -c none         use no compression algorithm on output",
-" -x              force the merged tiff pages in sequence",
 "",
 "Group 3 options:",
 " 1d              use default CCITT Group 3 1D-encoding",
@@ -585,8 +589,8 @@ static	copyFunc pickCopyFunc(TIFF*, TIFF*, uint16, uint16);
 static int
 tiffcp(TIFF* in, TIFF* out)
 {
-	uint16 bitspersample, samplesperpixel;
-	uint16 input_compression, input_photometric;
+	uint16 bitspersample = 1, samplesperpixel = 1;
+	uint16 input_compression, input_photometric = PHOTOMETRIC_MINISBLACK;
 	copyFunc cf;
 	uint32 width, length;
 	struct cpTag* p;
@@ -628,6 +632,12 @@ tiffcp(TIFF* in, TIFF* out)
 		TIFFSetField(out, TIFFTAG_PHOTOMETRIC,
 		    samplesperpixel == 1 ?
 		    PHOTOMETRIC_LOGL : PHOTOMETRIC_LOGLUV);
+	else if (input_compression == COMPRESSION_JPEG &&
+			 samplesperpixel == 3 ) {
+		/* RGB conversion was forced above
+		hence the output will be of the same type */
+		TIFFSetField(out, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+	}
 	else
 		CopyTag(TIFFTAG_PHOTOMETRIC, 1, TIFF_SHORT);
 	if (fillorder != 0)
@@ -972,7 +982,7 @@ DECLAREcpFunc(cpDecodedStrips)
 		tstrip_t s, ns = TIFFNumberOfStrips(in);
 		uint32 row = 0;
 		_TIFFmemset(buf, 0, stripsize);
-		for (s = 0; s < ns; s++) {
+		for (s = 0; s < ns && row < imagelength; s++) {
 			tsize_t cc = (row + rowsperstrip > imagelength) ?
 			    TIFFVStripSize(in, imagelength - row) : stripsize;
 			if (TIFFReadEncodedStrip(in, s, buf, cc) < 0
@@ -1055,11 +1065,21 @@ DECLAREcpFunc(cpContig2SeparateByRow)
 	register uint32 n;
 	uint32 row;
 	tsample_t s;
+        uint16 bps = 0;
+
+        (void) TIFFGetField(in, TIFFTAG_BITSPERSAMPLE, &bps);
+        if( bps != 8 )
+        {
+            TIFFError(TIFFFileName(in),
+                      "Error, can only handle BitsPerSample=8 in %s",
+                      "cpContig2SeparateByRow");
+            return 0;
+        }
 
 	inbuf = _TIFFmalloc(scanlinesizein);
 	outbuf = _TIFFmalloc(scanlinesizeout);
 	if (!inbuf || !outbuf)
-		return 0;
+		goto bad;
 	_TIFFmemset(inbuf, 0, scanlinesizein);
 	_TIFFmemset(outbuf, 0, scanlinesizeout);
 	/* unpack channels */
@@ -1108,11 +1128,21 @@ DECLAREcpFunc(cpSeparate2ContigByRow)
 	register uint32 n;
 	uint32 row;
 	tsample_t s;
+        uint16 bps = 0;
+
+        (void) TIFFGetField(in, TIFFTAG_BITSPERSAMPLE, &bps);
+        if( bps != 8 )
+        {
+            TIFFError(TIFFFileName(in),
+                      "Error, can only handle BitsPerSample=8 in %s",
+                      "cpSeparate2ContigByRow");
+            return 0;
+        }
 
 	inbuf = _TIFFmalloc(scanlinesizein);
 	outbuf = _TIFFmalloc(scanlinesizeout);
 	if (!inbuf || !outbuf)
-		return 0;
+                goto bad;
 	_TIFFmemset(inbuf, 0, scanlinesizein);
 	_TIFFmemset(outbuf, 0, scanlinesizeout);
 	for (row = 0; row < imagelength; row++) {
@@ -1150,7 +1180,7 @@ bad:
 
 static void
 cpStripToTile(uint8* out, uint8* in,
-    uint32 rows, uint32 cols, int outskew, int inskew)
+    uint32 rows, uint32 cols, int outskew, int64 inskew)
 {
 	while (rows-- > 0) {
 		uint32 j = cols;
@@ -1307,7 +1337,7 @@ DECLAREreadFunc(readContigTilesIntoBuffer)
 	tdata_t tilebuf;
 	uint32 imagew = TIFFScanlineSize(in);
 	uint32 tilew  = TIFFTileRowSize(in);
-	int iskew = imagew - tilew;
+	int64 iskew = (int64)imagew - (int64)tilew;
 	uint8* bufp = (uint8*) buf;
 	uint32 tw, tl;
 	uint32 row;
@@ -1325,7 +1355,7 @@ DECLAREreadFunc(readContigTilesIntoBuffer)
 		uint32 colb = 0;
 		uint32 col;
 
-		for (col = 0; col < imagewidth; col += tw) {
+		for (col = 0; col < imagewidth && colb < imagew; col += tw) {
 			if (TIFFReadTile(in, tilebuf, col, row, 0, 0) < 0
 			    && !ignore) {
 				TIFFError(TIFFFileName(in),
@@ -1335,7 +1365,7 @@ DECLAREreadFunc(readContigTilesIntoBuffer)
 				status = 0;
 				goto done;
 			}
-			if (colb + tilew > imagew) {
+			if (colb > iskew) {
 				uint32 width = imagew - colb;
 				uint32 oskew = tilew - width;
 				cpStripToTile(bufp + colb,
@@ -1365,7 +1395,7 @@ DECLAREreadFunc(readSeparateTilesIntoBuffer)
 	uint8* bufp = (uint8*) buf;
 	uint32 tw, tl;
 	uint32 row;
-	uint16 bps, bytes_per_sample;
+	uint16 bps = 0, bytes_per_sample;
 
 	tilebuf = _TIFFmalloc(tilesize);
 	if (tilebuf == 0)
@@ -1374,7 +1404,18 @@ DECLAREreadFunc(readSeparateTilesIntoBuffer)
 	(void) TIFFGetField(in, TIFFTAG_TILEWIDTH, &tw);
 	(void) TIFFGetField(in, TIFFTAG_TILELENGTH, &tl);
 	(void) TIFFGetField(in, TIFFTAG_BITSPERSAMPLE, &bps);
-	assert( bps % 8 == 0 );
+        if( bps == 0 )
+        {
+            TIFFError(TIFFFileName(in), "Error, cannot read BitsPerSample");
+            status = 0;
+            goto done;
+        }
+        if( (bps % 8) != 0 )
+        {
+            TIFFError(TIFFFileName(in), "Error, cannot handle BitsPerSample that is not a multiple of 8");
+            status = 0;
+            goto done;
+        }
 	bytes_per_sample = bps/8;
 
 	for (row = 0; row < imagelength; row += tl) {
@@ -1510,7 +1551,7 @@ DECLAREwriteFunc(writeBufferToContigTiles)
 		uint32 colb = 0;
 		uint32 col;
 
-		for (col = 0; col < imagewidth; col += tw) {
+		for (col = 0; col < imagewidth && colb < imagew; col += tw) {
 			/*
 			 * Tile is clipped horizontally.  Calculate
 			 * visible portion and skewing factors.
@@ -1550,7 +1591,7 @@ DECLAREwriteFunc(writeBufferToSeparateTiles)
 	uint8* bufp = (uint8*) buf;
 	uint32 tl, tw;
 	uint32 row;
-	uint16 bps, bytes_per_sample;
+	uint16 bps = 0, bytes_per_sample;
 
 	obuf = _TIFFmalloc(TIFFTileSize(out));
 	if (obuf == NULL)
@@ -1559,7 +1600,18 @@ DECLAREwriteFunc(writeBufferToSeparateTiles)
 	(void) TIFFGetField(out, TIFFTAG_TILELENGTH, &tl);
 	(void) TIFFGetField(out, TIFFTAG_TILEWIDTH, &tw);
 	(void) TIFFGetField(out, TIFFTAG_BITSPERSAMPLE, &bps);
-	assert( bps % 8 == 0 );
+        if( bps == 0 )
+        {
+            TIFFError(TIFFFileName(out), "Error, cannot read BitsPerSample");
+            _TIFFfree(obuf);
+            return 0;
+        }
+        if( (bps % 8) != 0 )
+        {
+            TIFFError(TIFFFileName(out), "Error, cannot handle BitsPerSample that is not a multiple of 8");
+            _TIFFfree(obuf);
+            return 0;
+        }
 	bytes_per_sample = bps/8;
 
 	for (row = 0; row < imagelength; row += tl) {
@@ -1750,7 +1802,7 @@ pickCopyFunc(TIFF* in, TIFF* out, uint16 bitspersample, uint16 samplesperpixel)
 	uint32 w, l, tw, tl;
 	int bychunk;
 
-	(void) TIFFGetField(in, TIFFTAG_PLANARCONFIG, &shortv);
+	(void) TIFFGetFieldDefaulted(in, TIFFTAG_PLANARCONFIG, &shortv);
 	if (shortv != config && bitspersample != 8 && samplesperpixel > 1) {
 		fprintf(stderr,
 		    "%s: Cannot handle different planar configuration w/ bits/sample != 8\n",
