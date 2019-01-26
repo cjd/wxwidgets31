@@ -20,7 +20,7 @@ Add the missing installed folder locations of any executables to your Path.
 For the stable (even) releases only, check that binary compatibility hasn't
 been broken since the last stable release.
 
-### Checking under Unix systems using `abi-complicance-checker` tool.
+### Checking under Unix systems using `abi-compliance-checker` tool.
 
 Instructions:
 
@@ -32,11 +32,11 @@ Instructions:
 1. Create directories for temporary files containing the ABI dumps for the old
    and new libraries: `mkdir -p ../compat/{$old,$new}`.
 1. Run abi-dumper on all libraries: `for l in $old/lib/*.so; do abi-dumper $l
-   -lver $old -o ../compat/$old/$(basename $l).dump` and the same thing with
+   -lver $old -o ../compat/$old/$(basename $l).dump; done` and the same thing with
    the new libraries.
 1. Run abi-compliance-checker on each pair of produced dumps to generate HTML
-   reports: `for l in 3.0.2/*dump; abi-compliance-checker -l $(basename $l
-   .dump) -old $l -new 3.0.3/$(basename $l)`.
+   reports: `for l in 3.0.2/*dump; do abi-compliance-checker -l $(basename $l
+   .dump) -old $l -new 3.0.3/$(basename $l); done`.
 1. Examine these reports, paying attention to the problem summary.
 
 ### Checking under MSW systems.
@@ -113,15 +113,19 @@ Attach the following files to it:
     wxWidgets-x.y.z-docs-html.zip
     wxWidgets-x.y.z-headers.7z
 
-Create http://docs.wxwidgets.org/x.y.z/ (ask Bryan to do it if not done yet).
+Create https://docs.wxwidgets.org/x.y.z/ (ask Bryan to do it if not done yet).
 
 ## Announcement
 
-Update https://www.wxwidgets.org, usually a news item is enough but something
-more can be called for for major releases.
+Update https://www.wxwidgets.org:
+* Update release information (at least `version` and `released`) in `_data/relases.yml`.
+* Download information can then be updated by running `update_release_info.rb`.
+  This will update the asset information from GitHub.
+* Add a news item. Usually a news item is enough but something
+  more can be called for for major releases
 
 Post `docs/publicity/announce.txt` at least to wx-announce@googlegroups.com and
-to wx-users for the important releases.
+to wx-users.
 
 Submit a link to https://www.reddit.com/r/programming
 
@@ -153,8 +157,8 @@ with x.y.z+1 (minor or major versions updates require manual intervention)
 and rerun both `bakefile_gen` and `autoconf` afterwards to update the version
 in the generated files too.
 
-Update the definition of the stable and release branches in
-`build/buildbot/config/include/defs.xml` after a minor version change.
+Update `master.cfg` in [wx/buildbot](https://github.com/wxWidgets/buildbot)
+repository after a minor or major version change.
 
 ## MSW Visual Studio Official Builds
 
